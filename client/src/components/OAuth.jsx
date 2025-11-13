@@ -1,10 +1,21 @@
-import React from "react";
 import { toast } from "react-toastify";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { app } from "../firebase";
 
 function OAuth() {
   const handleGoogleAuth = async () => {
     try {
-      console.log("Goolge clicked");
+      const auth = getAuth(app);
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: "select_account",
+      });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const { displayName: name, email, photoURL: avatar } = user;
+      console.log(name, email, avatar);
+      console.log(user);
+      console.log("Google clicked");
     } catch (error) {
       toast.error(error?.message || "Error in google authentication");
     }
