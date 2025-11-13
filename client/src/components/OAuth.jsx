@@ -1,10 +1,19 @@
 import { toast } from "react-toastify";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { app } from "../firebase";
+import { useDispatch } from "react-redux";
+import {
+  signInFailure,
+  signInStart,
+  signInSuccess,
+} from "../redux/user/userSlice";
+import axios from "axios";
 
 function OAuth() {
+  const dispatch = useDispatch();
   const handleGoogleAuth = async () => {
     try {
+      dispatch(signInStart());
       const auth = getAuth(app);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
@@ -13,11 +22,25 @@ function OAuth() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       const { displayName: name, email, photoURL: avatar } = user;
-      console.log(name, email, avatar);
-      console.log(user);
-      console.log("Google clicked");
+      const response = await axios.post(
+        "/api/auth/google-auth",
+        {
+          name,
+          email,
+          avatar,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      dispatch(signInSuccess(response.data.user));
+      toast.success(response?.data?.message || "Signed in with Google");
     } catch (error) {
-      toast.error(error?.message || "Error in google authentication");
+      dispatch(signInFailure(error?.response?.data?.message || error.message));
+      toast.error(
+        error?.response?.data?.message || "Error in Google authentication"
+      );
     }
   };
   return (

@@ -91,5 +91,58 @@ const signIn = async (req, res, next) => {
     return next(error);
   }
 };
+const googleAuth = async (req, res, next) => {
+  try {
+    const { name, email, avatar } = req.body;
 
-export { signUp, signIn };
+    if (!email) {
+      return next(errorHandler(400, "Google account is missing an email."));
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      const baseUsername =
+        name?.toLowerCase().replace(/\s+/g, "") ||
+        email.split("@")[0].toLowerCase();
+
+      let usernameCandidate = baseUsername;
+      // ensure username uniqueness
+      while (await User.findOne({ username: usernameCandidate })) {
+        const suffix = Math.random().toString(36).slice(-5);
+        usernameCandidate = `${baseUsername}${suffix}`;
+      }
+
+      const randomPassword = Math.random().toString(36).slice(-10);
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await User.create({
+        username: usernameCandidate,
+        email,
+        password: hashedPassword,
+        avatar,
+      });
+    } else if (avatar && user.avatar !== avatar) {
+      user.avatar = avatar;
+      await user.save();
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.cookie("token", token, { httpOnly: true, sameSite: "lax" });
+
+    const { password, ...userWithoutPassword } = user._doc;
+
+    return res.status(200).json({
+      success: true,
+      message: "Signed in with Google successfully.",
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export { signUp, signIn, googleAuth };
